@@ -101,8 +101,10 @@ class Applciation(tk.Frame):
         cl.grid(row=2, column=1)
         cb.grid(row=2, column=0)
 
-        stdout = tk.Message(connSettings, text=" ", bg="black", fg="white" ,width=100, anchor=tk.W, justify=tk.LEFT)
-        stdout.grid(row=0, column=4, rowspan=2)
+        OutputLog = tk.StringVar(self)
+        OutputLog.set("Idle...");
+        stdout = tk.Entry(connSettings, textvariable=OutputLog, state="readonly", bg="black", fg="white" ,width=32, justify=tk.LEFT)
+        stdout.grid(row=2, column=4, rowspan=2)
         connSettings.grid(row=0,column=0,  padx=5, pady=5, sticky=tk.NW + tk.NE)
 
     def drawJVSinfo(self):
