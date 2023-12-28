@@ -56,29 +56,41 @@ JVS_REPORT_DATAERROR        = 3
 JVS_REPORT_BUSY             = 4
 
 # Coin Condition codes
-JVS_COIN_NORMAL             = 0
-JVS_COIN_JAM                = 1
-JVS_COIN_NOCOUNTER          = 2
-JVS_COIN_BUSY               = 3
+class JVS_CoinCodes:
+    JVS_COIN_NORMAL             = 0
+    JVS_COIN_JAM                = 1
+    JVS_COIN_NOCOUNTER          = 2
+    JVS_COIN_BUSY               = 3
 
 # JVS Feature list (for use with jvs_message):
-JVS_FEATURE_END         = 0
-JVS_FEATURE_SWITCH      = 1
-JVS_FEATURE_COIN        = 2
-JVS_FEATURE_ANALOG      = 3
-JVS_FEATURE_ROTARY      = 4
-JVS_FEATURE_KEYCODE     = 5
-JVS_FEATURE_SCREEN      = 6
-JVS_FEATURE_MISC        = 7
-JVS_FEATURE_CARD        = 16
-JVS_FEATURE_MEDAL       = 17
-JVS_FEATURE_GPO         = 18
-JVS_FEATURE_ANALOG_OUT  = 19
-JVS_FEATURE_CHARACTER   = 20
-JVS_FEATURE_BACKUP      = 21
+# These are actually in BCD format which isnt mentioned for some reason
+class JVS_FeatureCodes:
+    JVS_FEATURE_END         = 0
+    JVS_FEATURE_SWITCH      = 1
+    JVS_FEATURE_COIN        = 2
+    JVS_FEATURE_ANALOG      = 3
+    JVS_FEATURE_ROTARY      = 4
+    JVS_FEATURE_KEYCODE     = 5
+    JVS_FEATURE_SCREEN      = 6
+    JVS_FEATURE_MISC        = 7
+    JVS_FEATURE_CARD        = 10
+    JVS_FEATURE_MEDAL       = 11
+    JVS_FEATURE_GPO         = 12
+    JVS_FEATURE_ANALOG_OUT  = 13
+    JVS_FEATURE_CHARACTER   = 14
+    JVS_FEATURE_BACKUP      = 15
 
 # JVS character output types (for use with jvs_message):
-JVS_CHARACTER_ASCII     = 1
-JVS_CHARACTER_ALPHA     = 2
-JVS_CHARACTER_KATA      = 3
-JVS_CHARACTER_KANJI     = 4
+class JVS_CharaOutputTypes:
+    JVS_CHARACTER_NONE      = 0
+    JVS_CHARACTER_ASCII     = 1
+    JVS_CHARACTER_ALPHA     = 2
+    JVS_CHARACTER_KATA      = 3
+    JVS_CHARACTER_KANJI     = 4
+
+def bcd2dec(bcd):
+    return (((bcd & 0xf0) >> 4) * 10 + (bcd & 0x0f))
+
+def DEC2BCD(dec):
+    tens, units = divmod(dec, 10)
+    return (tens << 4) + units
