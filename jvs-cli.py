@@ -80,13 +80,39 @@ class JVS():
     def setGPO(self, state):
         # Uses GPO 1 command which is most compatible
         report = JVS_Frame()
-        #report.numBytes = 2
         report.nodeID = self.ioBoard.nodeID
+        byteCount = 0
+        if (self.ioBoard.gpoCount / 8) < 1: 
+            byteCount = 1 
+        else: 
+            self.ioBoard.gpoCount
+
         report.data.append(JVS_GENERICOUT1_CODE)
+        report.data.append(byteCount)
         report.data.append(state)
         self.write(report)
         state = self.waitForReply(report)
         return state
+    
+    def getInputs(self, player: int = 0):
+        #if self.ioBoard.playerCount == 0:
+        #    return 0
+        
+        report = JVS_Frame()
+        report.nodeID = self.ioBoard.nodeID
+        report.data.append(JVS_READSWITCH_CODE)
+        if player == 0:
+            report.data.append(self.ioBoard.playerCount)
+        btnBytes = 0
+        for x in range(0, (int((1 * (self.ioBoard.switchCount / 8))) + 1)):
+            btnBytes += 1
+        report.data.append(btnBytes)
+        self.write(report)
+        state = self.waitForReply(report)
+        if state and state.data[0] == JVS_REPORT_NORMAL:
+            switches = bytearray(state.data[1:])
+            return switches
+        return 0
     
     def connect(self):
         """Connects to the first IO board on the JVS line"""
@@ -115,7 +141,7 @@ class JVS():
             print('Error whilst trying to connect')
         # Verify the sense line maybe
         
-        return
+        return self.connectState
     
     def disconnect(self):
         print('Disconnecting from JVS-IO')
@@ -466,8 +492,26 @@ def main(args = None):
         sleep(0.25)
 
         jvsIO = JVS(port, jvsIOBoard)
-        jvsIO.connect()
-        jvsIO.setGPO(0x0F)
+        ioState = jvsIO.connect()
+        if ioState == ConnectState.CONNECTED:
+            for x in range(0, 255):
+                switches = jvsIO.getInputs()
+                if(switches):
+                    btnBytes = 0
+                    for x in range(0, (int((1 * (jvsIO.ioBoard.switchCount / 8))) + 1)):
+                        btnBytes += 1
+
+                    print('Switches:')
+                    print(str('\t Cab:\t' + format(int(switches[0]), '010b')))
+                    for p in range(1, jvsIO.ioBoard.playerCount + 1):
+                        print(str('\t P' + str(p) + ':\t'), end='')
+                        for x in range(0, btnBytes):
+                            i = (x + (btnBytes * (p - 1)))
+                            print(format(int(switches[i]), '010b') + ' ', end='')
+                        print()
+                jvsIO.setGPO(x)
+                sleep(0.25)
+        jvsIO.sendReset()
 
 
 if __name__ == "__main__":
