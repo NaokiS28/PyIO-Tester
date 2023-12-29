@@ -1,3 +1,5 @@
+from enum import IntEnum
+
 JVS_BROADCAST_ADDR  = 0xFF
 JVS_HOST_ADDR       = 0x00
 
@@ -44,19 +46,21 @@ JVS_GENERICOUT3_CODE    = 0x38        # Sega Type 1 IO does not support this com
 # Commands = 0x60 to = 0x7F are manufacturer specific and not covered here
 
 # Status code
-JVS_STATUS_NORMAL           = 1
-JVS_STATUS_UNKNOWNCMD       = 2       # Sega IO sends this if there is a parameter error
-JVS_STATUS_CHECKSUMERROR    = 3
-JVS_STATUS_OVERFLOW         = 4       # Sega IO sends this back when it receives a empty packet
+class JVS_StatusCodes(IntEnum):
+    JVS_STATUS_NORMAL           = 1
+    JVS_STATUS_UNKNOWNCMD       = 2       # Sega IO sends this if there is a parameter error
+    JVS_STATUS_CHECKSUMERROR    = 3
+    JVS_STATUS_OVERFLOW         = 4       # Sega IO sends this back when it receives a empty packet
 
 # Report codes
-JVS_REPORT_NORMAL           = 1
-JVS_REPORT_PARAMETERERROR   = 2
-JVS_REPORT_DATAERROR        = 3
-JVS_REPORT_BUSY             = 4
+class JVS_ReportCodes(IntEnum):
+    JVS_REPORT_NORMAL           = 1
+    JVS_REPORT_PARAMETERERROR   = 2
+    JVS_REPORT_DATAERROR        = 3
+    JVS_REPORT_BUSY             = 4
 
 # Coin Condition codes
-class JVS_CoinCodes:
+class JVS_CoinCodes(IntEnum):
     JVS_COIN_NORMAL             = 0
     JVS_COIN_JAM                = 1
     JVS_COIN_NOCOUNTER          = 2
@@ -64,7 +68,7 @@ class JVS_CoinCodes:
 
 # JVS Feature list (for use with jvs_message):
 # These are actually in BCD format which isnt mentioned for some reason
-class JVS_FeatureCodes:
+class JVS_FeatureCodes(IntEnum):
     JVS_FEATURE_END         = 0
     JVS_FEATURE_SWITCH      = 1
     JVS_FEATURE_COIN        = 2
@@ -81,7 +85,7 @@ class JVS_FeatureCodes:
     JVS_FEATURE_BACKUP      = 15
 
 # JVS character output types (for use with jvs_message):
-class JVS_CharaOutputTypes:
+class JVS_CharaOutputTypes(IntEnum):
     JVS_CHARACTER_NONE      = 0
     JVS_CHARACTER_ASCII     = 1
     JVS_CHARACTER_ALPHA     = 2
