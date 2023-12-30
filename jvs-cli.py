@@ -72,7 +72,7 @@ class JVS():
         self.isMaster = master
     
     def __del__(self):
-        self.cuPort.close()
+        self.cuPort.close() 
 
     def setGPO(self, state):
         """Set IO board's GP outputs. Only tested on IO boards with 8 or less outputs"""
@@ -85,7 +85,9 @@ class JVS():
         
         report.data.append(JVS_GENERICOUT1_CODE)
         report.data.append(byteCount)
-        report.data.append(state)
+        for b in range(0, byteCount):
+            report.data.append((state & 0xFF))
+            state = state >> 8
         self.write(report)
         state = self.waitForReply(report)
         return state
@@ -565,7 +567,7 @@ def main(args = None):
             endConnection = False
             print("\033[s")
             while not endConnection:
-                if (time() - switchRead >= 0.01):
+                if (time() - switchRead >= 0.005):
                     switchRead = time()
                     switches = jvsIO.getInputs()
                     if(switches):
@@ -589,11 +591,15 @@ def main(args = None):
                     gpoWrite = time()
                     if gpo == 0:
                         gpo = 0x01
-                    elif gpo > 0 and gpo <= 0x40 :
+                    elif gpo > 0 and gpo < 0x10000 :
                         gpo = gpo << 1
                     else:
                         gpo = 0
                     jvsIO.setGPO(gpo)
+                    print('GPO: ' + format((gpo >> 16 & 0xFF), '08b') \
+                            + ' ' + format((gpo >> 8 & 0xFF), '08b') \
+                            + ' ' + format((gpo & 0xFF), '08b') \
+                            + ' 0x' + format(gpo, '05x') )
         jvsIO.sendReset()
 
 
