@@ -7,13 +7,27 @@ import sys, os
 from jvsmacros import *
 from dataclasses import dataclass, field
 from enum import IntEnum
+from bitstring import BitArray
+
+animationCycle = [ 
+    # M 1:UDLR 2:UDLR St:21 Sub:RL Mq: BR BL TR TL
+    '11000100000000011',
+    '10100010011000011',
+    '10010001000001100',
+    '10001000111001100',
+    '11000100000111010',
+    '10100010011111010',
+    '10010001000110101',
+    '10001000111110101'
+    ]
 
 class ConnectState(IntEnum):
     DISCONNECTED = 0
     FAILED = 1
-    CONNECTING = 2
-    RETRYING = 3
-    CONNECTED = 4
+    LOST = 2
+    CONNECTING = 3
+    RETRYING = 4
+    CONNECTED = 5
 
 @dataclass
 class JVS_Frame:
@@ -28,7 +42,7 @@ class JVS_Frame:
 @dataclass
 class JVSIO:
     nodeID: int = 0
-    name: str = ""
+    name: str = " "
     cmdver: int = 0
     jvsver: int = 0
     comver: int = 0
@@ -66,7 +80,6 @@ class JVS():
         self.cuPort = port
         self.ioBoard = ioBoard
         self.connectState = ConnectState.DISCONNECTED # 0= disconnected, 1= failed, 2= connecting, 3= retrying, 4= connected
-        self.cuPort.rts = True
         self.ioBoardCount = 0
         self.lastSentFrame = JVS_Frame()
         self.isMaster = master
@@ -74,20 +87,19 @@ class JVS():
     def __del__(self):
         self.cuPort.close() 
 
-    def setGPO(self, state):
+    def setGPO(self, state: bytes):
         """Set IO board's GP outputs. Only tested on IO boards with 8 or less outputs"""
         # Uses GPO 1 command which is most compatible
         if self.ioBoard.gpoCount == 0:
             return 0
         report = JVS_Frame()
         report.nodeID = self.ioBoard.nodeID
-        byteCount = int((1 * (self.ioBoard.gpoCount / 8) + 1))
+        byteCount = int((1 * (self.ioBoard.gpoCount / 8)) + 1)
         
         report.data.append(JVS_GENERICOUT1_CODE)
         report.data.append(byteCount)
         for b in range(0, byteCount):
-            report.data.append((state & 0xFF))
-            state = state >> 8
+            report.data.append(state[byteCount - (1 + b)])
         self.write(report)
         state = self.waitForReply(report)
         return state
@@ -110,6 +122,56 @@ class JVS():
             return switches
         return 0
     
+    def getCoinCount(self, slots: int = 0):
+        """Requests coin count from IO board. If player=0, will get all slots, else you can specify how many slots to read from (Starting from coin 1)"""
+        report = JVS_Frame()
+        report.nodeID = self.ioBoard.nodeID
+        report.data.append(JVS_READCOIN_CODE)
+        if slots == 0:
+            report.data.append(self.ioBoard.coinCount)
+        else:
+            report.data.append(slots)
+        self.write(report)
+        state = self.waitForReply(report)
+        if state and state.data[0] == JVS_ReportCodes.JVS_REPORT_NORMAL:
+            coins = bytearray(state.data[1:])
+            return coins
+        return 0
+    
+    def decCoinCounter(self, slots: int = 0):
+        """Decrements 1 coin from IO board. If player=0, will decrement the first slot"""
+        report = JVS_Frame()
+        report.nodeID = self.ioBoard.nodeID
+        report.data.append(JVS_COINDECREASE_CODE)
+        if slots == 0:
+            report.data.append(0x01)
+        else:
+            report.data.append(slots)
+        report.data.append(0x00)    # MSB of int to decrement
+        report.data.append(0x01)    # LSB of int to decrement
+        self.write(report)
+        state = self.waitForReply(report)
+        if state and state.data[0] == JVS_ReportCodes.JVS_REPORT_NORMAL:
+            return 1
+        return 0
+    
+    def incCoinCounter(self, slots: int = 0):
+        """Decrements 1 coin from IO board. If player=0, will decrement the first slot"""
+        report = JVS_Frame()
+        report.nodeID = self.ioBoard.nodeID
+        report.data.append(JVS_COININCREASE_CODE)
+        if slots == 0:
+            report.data.append(0x01)
+        else:
+            report.data.append(slots)
+        report.data.append(0x00)    # MSB of int to decrement
+        report.data.append(0x01)    # LSB of int to decrement
+        self.write(report)
+        state = self.waitForReply(report)
+        if state and state.data[0] == JVS_ReportCodes.JVS_REPORT_NORMAL:
+            return 1
+        return 0
+
     def connect(self):
         """Connects to the first IO board on the JVS line"""
         self.connectState = ConnectState.CONNECTING
@@ -130,7 +192,7 @@ class JVS():
             # If no errors up to this point, or atleast one IO was found, call it good.
             self.connectState = ConnectState.CONNECTED
             self.ioBoardCount += 1
-            self.printFeatures()
+
         except JVS_Error:
             print('Error whilst trying to connect')
         # Verify the sense line maybe
@@ -354,7 +416,7 @@ class JVS():
         while index < 6:
             byte = self.cuPort.read()[0]
             if byte == JVS_SYNC and index != 0:
-                return self.readPacket(fIndex=1)
+                return self.readPacket(index=1)
             if not byte == JVS_MARK:
                 if mark_received == True:
                     byte -= 1
@@ -376,7 +438,10 @@ class JVS():
                         if (inBuffer < packet.numBytes): 
                             if not self._waitForBytes(packet.numBytes):
                                 break
-                        index += 1
+                        if packet.numBytes < 3:
+                            index += 2
+                        else:
+                            index += 1
                     case 3:
                         if(self.isMaster): packet.status = byte
                         else: 
@@ -388,7 +453,9 @@ class JVS():
                     case 4:
                         packet.data.append(byte)
                         counter += 1
-                        if counter >= (packet.numBytes - 2):   # 2 bytes for status, sum
+                        if self.isMaster and counter >= (packet.numBytes - 2):
+                            index += 1
+                        elif not self.isMaster and counter >= (packet.numBytes - 1):   # 2 bytes for status, sum
                             index += 1
                     case 5:
                         packet.sum = byte
@@ -451,12 +518,12 @@ class JVS():
         while not report:
             while not (self.cuPort.in_waiting >= 5):
                 if (time() - start > timeout):
-                    if tcount > 0 and tcount < 4:
+                    if tcount > 0 and tcount < 3:
                         self.write(frame)
                         start = time()
                     elif tcount > 3:
                         print('Request timed out')
-                        return 0
+                        return None
                     tcount += 1
                 else: 
                     sleep(interval)
@@ -564,14 +631,16 @@ def main(args = None):
             gpo = 0x00
             switchRead = 0
             gpoWrite = 0
+            coinSlot = [0,0,0,0]
             endConnection = False
             print("\033[s")
+            gpoI = 0
             while not endConnection:
+                print("\033[u")
                 if (time() - switchRead >= 0.005):
                     switchRead = time()
                     switches = jvsIO.getInputs()
                     if(switches):
-                        print("\033[u")
                         btnBytes = 0
                         byteMax = int((1 * (jvsIO.ioBoard.switchCount / 8) + 1))
                         for x in range(0, byteMax):
@@ -587,19 +656,61 @@ def main(args = None):
                                 i = (x + (btnBytes * (p - 1))) + 1
                                 print(format(int(switches[i]), '08b') + ' ', end='')
                             print()
-                if (time() - gpoWrite >= 0.25) and jvsIO.ioBoard.gpoCount > 0:
-                    gpoWrite = time()
-                    if gpo == 0:
-                        gpo = 0x01
-                    elif gpo > 0 and gpo < 0x10000 :
-                        gpo = gpo << 1
                     else:
-                        gpo = 0
-                    jvsIO.setGPO(gpo)
-                    print('GPO: ' + format((gpo >> 16 & 0xFF), '08b') \
-                            + ' ' + format((gpo >> 8 & 0xFF), '08b') \
-                            + ' ' + format((gpo & 0xFF), '08b') \
-                            + ' 0x' + format(gpo, '05x') )
+                        print("Error reading switches")
+
+                    print()
+                    coins: bytearray = jvsIO.getCoinCount()
+                    if(coins):
+                        for c in range(0, jvsIO.ioBoard.coinCount):
+                            condition = coins.pop(0)
+                            count = (((condition & 0x3F) << 8) + coins.pop(0))
+                            print("Coin slot " + str(c + 1) + ': ' + str(count) + ' COIN(S)', end='')
+                            condition = condition >> 6
+                            coinSlot[c] = count
+                            match condition:
+                                case JVS_CoinCodes.JVS_COIN_JAM:
+                                    print(' E: Jammed')
+                                case JVS_CoinCodes.JVS_COIN_BUSY:
+                                    print(' I: Busy')
+                                case JVS_CoinCodes.JVS_COIN_NOCOUNTER:
+                                    print(' E: No Coin Counter')
+                                case JVS_CoinCodes.JVS_COIN_NORMAL:
+                                    print()
+                    else:
+                        print("Error reading coins")
+                if (time() - gpoWrite >= 0.15) and jvsIO.ioBoard.gpoCount > 0:
+                    print()
+                    gpoWrite = time()
+                    
+                    #if gpo == 0:
+                    #    gpo = 0x01
+                    #elif gpo > 0 and gpo < 0x10000 :
+                    #    gpo = gpo << 1
+                    #else:
+                    #    gpo = 0
+                    gpoResult = jvsIO.setGPO(bin=animationCycle[gpoI].tobytes)
+                    if(gpoResult):
+                        if gpoI < len(animationCycle) - 1:
+                            gpoI += 1
+                        else:
+                            gpoI = 0
+                        print('GPO: ' + format((BitArray(bin=animationCycle[gpoI]).int) >> 16 & 0xFF, '08b') \
+                                + ' ' + format((BitArray(bin=animationCycle[gpoI]).int) >> 8 & 0xFF, '08b') \
+                                + ' ' + format((BitArray(bin=animationCycle[gpoI]).int) & 0xFF, '08b') \
+                                + ' 0x' + format(BitArray(bin=animationCycle[gpoI]).int, '05x') )
+                    else:
+                        print("Error setting outputs")
+                    
+                    if(coinSlot[0] > 0):
+                        coinDec = jvsIO.decCoinCounter()
+                        if not coinDec:
+                            print("Error decrementing coin slot 0")
+                    else:
+                        coinInc = jvsIO.incCoinCounter()
+                        if not coinInc:
+                            print("Error decrementing coin slot 0")
+                
         jvsIO.sendReset()
 
 

@@ -1,8 +1,11 @@
-import tkinter as tk
+from tkinter import *
+from tkinter import ttk
 from enum import Enum
 import glob
+from . import jvs
 from itertools import count
 from multiprocessing import Process
+
 
 cuList = glob.glob("/dev/cu.*")
 senseList = [
@@ -64,20 +67,16 @@ def insert_point(string):
 
 class Applciation(tk.Frame):
     def __init__(self, master=None):
-        tk.Frame.__init__(self,master)
+        tk = Tk()
+        self.tk.Frame.__init__(self,master)
         
         self.grid(sticky=tk.N + tk.S + tk.E + tk.W)
-        self.createWidgets()
-
-    def createWidgets(self):
         # Setup window
         top = self.winfo_toplevel()
         #top.minsize(800,530)
         top.rowconfigure(0, weight=1)
         top.columnconfigure(0, weight=1)
         self.rowconfigure(0, pad=5, weight=1)
-        #self.columnconfigure(1, minsize=150, weight=1)
-        #self.columnconfigure(0, minsize=430, weight=1)
         self.drawConection()
     
     def drawConection(self):
