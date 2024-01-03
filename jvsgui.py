@@ -82,6 +82,9 @@ class jvsApp(tk.Tk):
         self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
 
+        self.gpoFrame = None
+        self.inputFrame = None
+
         portCheck = self.register(self.checkBeforeConnect)
 
         self.connectionFrame = tk.Frame(master=self, width=600, height=400)
@@ -275,10 +278,10 @@ class jvsApp(tk.Tk):
         idx = 0
         btnInt = int(switches[0])
         if switches and (switches != lastSwitch):
-            if (bool((btnInt) & 1)): 
-                self.machineCanvas.itemconfigure(0, fill='red')
+            if (bool((btnInt) & 0x80)): 
+                self.machineCanvas.itemconfigure(self.btnTestO, fill='red')
             else: 
-                self.machineCanvas.itemconfigure(0, fill='red4')
+                self.machineCanvas.itemconfigure(self.btnTestO, fill='red4')
 
             for p in range(0, self.jvsInfo.playerCount):
                 idx += 1
@@ -321,13 +324,13 @@ class jvsApp(tk.Tk):
             self.disconnect()
 
     def disconnect(self):
-        if self.gpoFrame: 
+        if self.gpoFrame != None: 
             for g in range(0, len(self.dynamic_GPO)):
                 self.dynamic_GPO[g].destroy()
             self.dynamic_GPO.clear()
             self.gpoFrame.destroy()
 
-        if self.inputFrame: 
+        if self.inputFrame != None: 
             self.machineCanvas.destroy()
             if self.jvsInfo.playerCount > 0 and self.jvsInfo.switchCount > 0:
                 self.dynamic_InputC.clear()
