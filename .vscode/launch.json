@@ -10,8 +10,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": true,
-            "args": ["--port=/dev/cu.usbserial-0001"]
+            "justMyCode": true
         }
     ]
 }
